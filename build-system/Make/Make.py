@@ -661,9 +661,6 @@ def build(bazel, arguments):
     bazel_command_line.set_split_swiftmodules(arguments.enableParallelSwiftmoduleGeneration)
     bazel_command_line.set_disable_provisioning_profiles()
     bazel_command_line.common_args.append('--features=disable_legacy_signing')
-    bazel_command_line.common_args.append(
-        '--objcopt=-Wno-error=thread-safety-analysis'
-    )
 
     bazel_command_line.invoke_build()
 
