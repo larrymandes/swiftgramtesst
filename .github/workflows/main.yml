@@ -1,0 +1,72 @@
+
+name: Build Swiftgram Teamgram IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - l10n
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 360
+
+    env:
+      USE_BAZEL_VERSION: 8.4.2
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Install Bazelisk
+        run: brew install bazelisk
+
+      - name: Cache Bazel
+        uses: actions/cache@v4
+        with:
+          path: ~/telegram-bazel-cache
+          key: bazel-${{ runner.os }}-${{ hashFiles('MODULE.bazel.lock') }}
+          restore-keys: |
+            bazel-${{ runner.os }}-
+
+      - name: Build IPA
+        run: |
+          python3 -u build-system/Make/Make.py \
+            --overrideXcodeVersion \
+            --cacheDir="$HOME/telegram-bazel-cache" \
+            build \
+            --configurationPath=build-system/appstore-configuration.json \
+            --codesigningInformationPath=build-system/fake-codesigning \
+            --buildNumber=${{ github.run_number }} \
+            --configuration=release_arm64
+
+      - name: Prepare IPA artifact
+        run: |
+          mkdir -p dist
+          IPA=$(find build -type f -name '*.ipa' | head -n 1)
+
+          if [ -z "$IPA" ]; then
+            echo "IPA was not generated!"
+            find build -maxdepth 5 -type f | head -100
+            exit 1
+          fi
+
+          cp "$IPA" dist/Swiftgram-Teamgram.ipa
+          ls -lh dist/
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Swiftgram-Teamgram-IPA
+          path: dist/Swiftgram-Teamgram.ipa
+          if-no-files-found: error
+          retention-days: 7
