@@ -1,5 +1,5 @@
 
-name: Build Swiftgram Teamgram IPA
+name: Build SillySwiftGram IPA
 
 on:
   workflow_dispatch:
@@ -15,28 +15,27 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 360
 
-    env:
-      USE_BAZEL_VERSION: 8.4.2
-
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Show Xcode version
-        run: xcodebuild -version
-
-      - name: Install Bazelisk
-        run: brew install bazelisk
-
-      - name: Cache Bazel
-        uses: actions/cache@v4
+      # Восстанавливаем предыдущий Bazel cache
+      - name: Restore Bazel cache
+        id: bazel-cache
+        uses: actions/cache/restore@v4
         with:
           path: ~/telegram-bazel-cache
-          key: bazel-${{ runner.os }}-${{ hashFiles('MODULE.bazel.lock') }}
+          key: sillyswiftgram-bazel-${{ runner.os }}-${{ hashFiles('MODULE.bazel.lock', 'versions.json') }}-${{ github.sha }}
           restore-keys: |
-            bazel-${{ runner.os }}-
+            sillyswiftgram-bazel-${{ runner.os }}-${{ hashFiles('MODULE.bazel.lock', 'versions.json') }}-
+            sillyswiftgram-bazel-${{ runner.os }}-
+
+      - name: Show environment
+        run: |
+          xcodebuild -version
+          python3 --version
 
       - name: Build IPA
         run: |
@@ -49,24 +48,35 @@ jobs:
             --buildNumber=${{ github.run_number }} \
             --configuration=release_arm64
 
-      - name: Prepare IPA artifact
+      # Сохраняем обновлённый кэш после сборки
+      - name: Save Bazel cache
+        if: success()
+        uses: actions/cache/save@v4
+        with:
+          path: ~/telegram-bazel-cache
+          key: sillyswiftgram-bazel-${{ runner.os }}-${{ hashFiles('MODULE.bazel.lock', 'versions.json') }}-${{ github.sha }}
+
+      - name: Prepare IPA
+        if: success()
         run: |
           mkdir -p dist
-          IPA=$(find build -type f -name '*.ipa' | head -n 1)
 
-          if [ -z "$IPA" ]; then
-            echo "IPA was not generated!"
-            find build -maxdepth 5 -type f | head -100
+          IPA="bazel-bin/Telegram/Telegram.ipa"
+
+          if [ ! -f "$IPA" ]; then
+            echo "IPA not found!"
+            find bazel-bin -name '*.ipa' -print
             exit 1
           fi
 
-          cp "$IPA" dist/Swiftgram-Teamgram.ipa
+          cp "$IPA" dist/SillySwiftGram.ipa
           ls -lh dist/
 
       - name: Upload IPA
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: Swiftgram-Teamgram-IPA
-          path: dist/Swiftgram-Teamgram.ipa
+          name: SillySwiftGram-IPA
+          path: dist/SillySwiftGram.ipa
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 14
