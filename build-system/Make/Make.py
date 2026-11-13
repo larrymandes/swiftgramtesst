@@ -585,6 +585,47 @@ def generate_project(bazel, arguments):
     call_executable(['open', xcodeproj_path])
 
 
+def prepare_unsigned_ipa_rules(base_path):
+    profile_partial_path = os.path.join(
+        base_path,
+        'build-system/bazel-rules/rules_apple/apple/internal/partials/provisioning_profile.bzl'
+    )
+
+    if not os.path.isfile(profile_partial_path):
+        raise RuntimeError(
+            'rules_apple submodule not found: ' + profile_partial_path
+        )
+
+    with open(profile_partial_path, 'r') as file:
+        source = file.read()
+
+    error_text = 'Building for device, but no provisioning_profile attribute was set.'
+
+    if error_text in source:
+        start = source.find('    if not profile_artifact:')
+        end = source.find(
+            '    # Create intermediate file with proper name for the binary.',
+            start
+        )
+
+        if start == -1 or end == -1:
+            raise RuntimeError('Could not patch rules_apple provisioning profile partial')
+
+        source = (
+            source[:start]
+            + '    if not profile_artifact:\n'
+            + '        return struct(bundle_files = [])\n'
+            + source[end:]
+        )
+
+        with open(profile_partial_path, 'w') as file:
+            file.write(source)
+
+    elif 'return struct(bundle_files = [])' not in source:
+        raise RuntimeError('Unexpected rules_apple provisioning profile implementation')
+
+
+
 def build(bazel, arguments):
     bazel_command_line = BazelCommandLine(
         bazel=bazel,
@@ -592,6 +633,7 @@ def build(bazel, arguments):
         override_xcode_version=arguments.overrideXcodeVersion,
         bazel_user_root=arguments.bazelUserRoot
     )
+    prepare_unsigned_ipa_rules(os.getcwd())
 
     if arguments.lock:
         bazel_command_line.set_lock(True)
@@ -617,6 +659,8 @@ def build(bazel, arguments):
     bazel_command_line.set_profile_swift(arguments.profileSwift)
 
     bazel_command_line.set_split_swiftmodules(arguments.enableParallelSwiftmoduleGeneration)
+    bazel_command_line.set_disable_provisioning_profiles()
+    bazel_command_line.common_args.append('--features=disable_legacy_signing')
 
     bazel_command_line.invoke_build()
 
