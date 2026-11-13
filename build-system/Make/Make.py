@@ -617,6 +617,7 @@ def build(bazel, arguments):
     bazel_command_line.set_profile_swift(arguments.profileSwift)
 
     bazel_command_line.set_split_swiftmodules(arguments.enableParallelSwiftmoduleGeneration)
+    bazel_command_line.set_disable_provisioning_profiles()
 
     bazel_command_line.invoke_build()
 
