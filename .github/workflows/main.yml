@@ -21,6 +21,24 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Patch WebRTC lifetimebound
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path("third-party/webrtc/webrtc/api/candidate.h")
+          s = p.read_text()
+
+          old = "void set_type(absl::string_view type ABSL_ATTRIBUTE_LIFETIME_BOUND)"
+          new = "void set_type(absl::string_view type)"
+
+          if old not in s:
+              raise SystemExit("ERROR: expected WebRTC code not found")
+
+          p.write_text(s.replace(old, new, 1))
+          print("WebRTC patched successfully")
+          PY
+
       # Восстанавливаем предыдущий Bazel cache
       - name: Restore Bazel cache
         id: bazel-cache
