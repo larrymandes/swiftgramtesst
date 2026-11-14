@@ -34,11 +34,13 @@ jobs:
           print("WebRTC patched successfully")
           PY
 
-      - name: Fix FLAnimatedImage for newer clang
+      - name: Fix LegacyComponents for newer clang
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
+
+          # 1) FLAnimatedImage: float compared with enum
           p = Path("submodules/LegacyComponents/Sources/FLAnimatedImage.m")
           s = p.read_text()
           n, c = re.subn(
@@ -49,9 +51,28 @@ jobs:
           if c == 0:
               raise SystemExit("ERROR: FLAnimatedImage pattern not found")
           p.write_text(n)
-          print("FLAnimatedImage patched:", c, "replacements")
+          print("FLAnimatedImage patched:", c)
+
+          # 2) kCGBitmapByteOrder* | kCGImageAlpha*: bitwise op between different enums
+          pat = re.compile(r"(kCGBitmapByteOrder\w+)\s*\|\s*(kCGImageAlpha\w+)")
+          total = 0
+          gpu_changed = 0
+          for f in Path("submodules/LegacyComponents/Sources").rglob("*.m"):
+              t = f.read_text(errors="ignore")
+              n, c = pat.subn(r"\1 | (CGBitmapInfo)\2", t)
+              if c:
+                  f.write_text(n)
+                  total += c
+                  print("Patched", f, c)
+                  if f.name == "GPUImageFramebuffer.m":
+                      gpu_changed = c
+          if gpu_changed == 0:
+              raise SystemExit("ERROR: GPUImageFramebuffer.m pattern not found")
+          print("Bitmap info patched:", total)
           PY
           echo 'build --objccopt=-Wno-error=enum-float-conversion' >> .bazelrc
+          echo 'build --objccopt=-Wno-error=enum-enum-conversion' >> .bazelrc
+          echo 'build --objccopt=-Wno-error=deprecated-declarations' >> .bazelrc
 
       - name: Restore Bazel cache
         uses: actions/cache/restore@v4
@@ -68,6 +89,7 @@ jobs:
           python3 --version
 
       - name: Build IPA
+        timeout-minutes: 330
         run: |
           python3 -u build-system/Make/Make.py \
             --overrideXcodeVersion \
