@@ -73,6 +73,11 @@ jobs:
           echo 'build --objccopt=-Wno-error=enum-float-conversion' >> .bazelrc
           echo 'build --objccopt=-Wno-error=enum-enum-conversion' >> .bazelrc
           echo 'build --objccopt=-Wno-error=deprecated-declarations' >> .bazelrc
+          echo 'build --objccopt=-Wno-error=misleading-indentation' >> .bazelrc
+          echo 'build --objccopt=-Wno-error=unused-but-set-variable' >> .bazelrc
+          echo 'build --objccopt=-Wno-error=sometimes-uninitialized' >> .bazelrc
+          echo 'build --objccopt=-Wno-error=nontrivial-memcall' >> .bazelrc
+          echo 'build --objccopt=-Wno-error=incompatible-pointer-types' >> .bazelrc
 
       - name: Restore Bazel cache
         uses: actions/cache/restore@v4
