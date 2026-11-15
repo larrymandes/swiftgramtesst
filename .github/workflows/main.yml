@@ -116,7 +116,7 @@ jobs:
       - name: Prepare IPA
         run: |
           mkdir -p dist
-          IPA="bazel-bin/Telegram/Telegram.ipa"
+          IPA="bazel-bin/Telegram/Swiftgram.ipa"
           if [ ! -f "$IPA" ]; then
             echo "IPA not found!"
             find bazel-bin -name '*.ipa' -print
