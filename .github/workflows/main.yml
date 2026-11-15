@@ -113,17 +113,66 @@ jobs:
           path: ~/telegram-bazel-cache
           key: sillyswiftgram-bazel-${{ runner.os }}-${{ hashFiles('MODULE.bazel.lock', 'versions.json') }}-${{ github.run_id }}-${{ github.run_attempt }}
 
+      
       - name: Prepare IPA
         run: |
-          mkdir -p dist
+          set -e
+
           IPA="bazel-bin/Telegram/Swiftgram.ipa"
+
           if [ ! -f "$IPA" ]; then
             echo "IPA not found!"
             find bazel-bin -name '*.ipa' -print
             exit 1
           fi
+
+          echo "Removing embedded Apple Watch app..."
+
+          python3 - "$IPA" <<'PY'
+          import sys
+          import re
+          import zipfile
+          from pathlib import Path
+
+          ipa = Path(sys.argv[1])
+          temp = ipa.with_name("Swiftgram.stripped.ipa")
+
+          pattern = re.compile(
+              r"^Payload/[^/]+\.app/Watch(?:/|$)"
+          )
+
+          with zipfile.ZipFile(ipa, "r") as src:
+              files = src.infolist()
+              removed = [
+                  f.filename for f in files
+                  if pattern.match(f.filename)
+              ]
+
+              if not removed:
+                  raise SystemExit(
+                      "ERROR: Embedded Watch app not found"
+                  )
+
+              with zipfile.ZipFile(temp, "w") as dst:
+                  for item in files:
+                      if pattern.match(item.filename):
+                          continue
+                      dst.writestr(item, src.read(item.filename))
+
+          temp.replace(ipa)
+
+          print(f"Removed {len(removed)} Watch entries:")
+          for name in removed:
+              print(" -", name)
+
+          print("Watch app successfully removed!")
+          PY
+
+          mkdir -p dist
           cp "$IPA" dist/SillySwiftGram.ipa
+
           ls -lh dist/
+
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
