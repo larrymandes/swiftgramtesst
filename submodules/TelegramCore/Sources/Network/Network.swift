@@ -573,7 +573,6 @@ func initializedNetwork(accountId: AccountRecordId, arguments: NetworkInitializa
             #endif
             
             if !supplementary {
-                // context.setDiscoverBackupAddressListSignal(MTBackupAddressSignals.fetchBackupIps(testingEnvironment, currentContext: context, additionalSource: wrappedAdditionalSource, phoneNumber: phoneNumber, mainDatacenterId: datacenterId))
                 let externalRequestVerificationStream = arguments.externalRequestVerificationStream
                 context.setExternalRequestVerification({ nonce in
                     return MTSignal(generator: { subscriber in
